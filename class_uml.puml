@@ -1,0 +1,70 @@
+@startuml
+'https://plantuml.com/class-diagram
+
+class board {
+rows
+cols
+currentColor
+}
+class piece {
+row
+col
+position
+color
+selected
+move_list
+}
+class main_screen {
+pvp_img
+ai_img
+win
+clientg
+}
+class game {
+        board
+        rect
+        width
+        height
+        win
+        start()
+        startAI()
+}
+class move {
+start
+end
+piece_ind
+color
+move_id
+}
+class Node {
+move
+position
+children
+}
+class minMaxTree {
+root
+minimax(root, depth, maximizing_player)
+}
+
+board <|- piece
+game <|- board
+
+main_screen <|- game
+minMaxTree <|- Node
+Node <|-- subNode0
+Node <|-- subNode1
+Node <|-- subNode_N
+game <|-- minMaxTree
+board <|-- piece_indexes
+piece <|-- piece_indexes
+
+enum piece_indexes {
+    e_Bishop = 0
+    e_King = 1
+    e_Knight = 2
+    e_Pawn = 3
+    e_Queen = 4
+    e_Rook = 5
+}
+
+@enduml
