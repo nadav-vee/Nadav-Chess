@@ -4,6 +4,7 @@ ip_prot = socket.AF_INET
 tcp_prot = socket.SOCK_STREAM
 server_ip = '127.0.0.1'
 server_port = 8820
+client_port = 8821
 MAX_MSG_LENGTH = 1024
 server_name = "The Gfuel fan club"
 
@@ -37,14 +38,61 @@ client_functions_dict = {
 
 }
 
+def build_message(cmd, data):
+    """
+    Gets command name (str) and data field (str) and creates a valid protocol message
+    Returns: str, or None if error occured
+    """
+    # Implement code ...
+
+    #return full_msg
+    if(cmd == None or data == None):
+        return None
+    return "{:<16}".format(cmd) + "|{:0>4}".format(len(data))+ "|{}".format(data)
+
+
+
+def parse_message(data):
+    """
+    Parses protocol message and returns command name and data field
+    Returns: cmd (str), data (str). If some error occured, returns None, None
+    """
+
+    # The function should return 2 values
+    #return cmd, msg
+    if(data.count("|") == 2):
+        if(data[17:21].isdigit()):
+            tmplen = data.rfind("|")
+            if(int(data[17:21]) == len(data) - 22):
+                msg = data.split("|")
+                return msg[0].strip(), msg[2]
+    return None, None
+
+
+def split_data(msg, expected_fields):
+    """
+    Helper method. gets a string and number of expected fields in it. Splits the string
+    using protocol's data field delimiter (|#) and validates that there are correct number of fields.
+    Returns: list of fields if all ok. If some error occured, returns None
+    """
+
+    if(msg.count("#") != expected_fields-1):
+        return None
+    else:
+        return msg.split("#", expected_fields-1)
+
+
+
+def join_data(msg_fields):
+    """
+    Helper method. Gets a list, joins all of it's fields to one string divided by the data delimiter.
+    Returns: string that looks like cell1#cell2#cell3
+    """
+    # Implement code ...
+    return "#".join(msg_fields)
+
+
 # general functions
-
-def parse_msg(msg):
-    pass
-
-def build_msg(data_type, _data):
-    pass
-
 '''
 - - - protocol documentation - - -
 
@@ -64,7 +112,11 @@ Message structure:
 Message types from client to server:
     
     Request opponent:
-        REQUEST_OPPONENT|
+        
+        REQUEST_OPPONENT|0000|
+        
+        this message will be sent after client is ready for the game
+        and is requesting an approval that server has connected to
     
     Continue:
     

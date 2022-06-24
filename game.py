@@ -79,11 +79,15 @@ class game:
                 return i, j
         return -1, -1
 
+    def invoke_move(self):
+        pass
+
     def start(self):
         p1Time = 60 * 15
         p2Time = 60 * 15
         clock = pygame.time.Clock()
         turn = "w"
+        self.borad = Board(8,8, turn)
         bo = Board(8,8, turn)
         run = True
         startTime = time.time()

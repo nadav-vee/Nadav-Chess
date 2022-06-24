@@ -2,6 +2,7 @@ import pygame
 from pygame.locals import *
 import game
 import constants as c
+import chess_protocol as cp
 import os
 import socket
 import logging
@@ -15,12 +16,17 @@ class Client:
 
         # game options
         self.localgame = game.game(self.win)
+        self.game_running = False
+        self.game_over = False
 
         # client general
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.IP = "127.0.0.1"
-        self.PORT = 8820
-        self.MAX_MSG_LENGTH = 1024
+        self.client_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.IP = cp.server_ip
+        self.PORT = cp.server_port
+        self.CL_PORT = cp.client_port
+        self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
+        self.can_connect = False
 
         # client logging
         #   Create a custom logger
@@ -84,19 +90,38 @@ class Client:
             return True
         return False
 
+    def connect_to_opponent(self, _listen):
+        if not _listen:
+            try:
+                self.client_conn.connect((self.IP, self.CL_PORT))
+            except Exception as e:
+                self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e))
+                self.conn.close()
+        else:
+            self.client_conn.bind((self.IP, self.CL_PORT))
+            self.client_conn.listen()
+            (self.opp_socket, self.opp_address) = self.client_conn.accept()
+            print( "Opponent connected" )
+
+    def request_game(self):
+        req = cp.build_message("REQUEST_OPPONENT", "")
+
+    def handle_game_sync(self):
+        if self.game_running:
+            return True
+        else:
+            while True:
+                raw_msg = self.request_game()
+                (_type, _msg) = cp.parse_message(raw_msg.decode())
+
+
     def online_start(self):
         try:
             self.conn.connect((self.IP, self.PORT))
-            while True:
-                msg = input("enter message\n")
-                self.conn.send(msg.encode())
-                data = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-                print("THE SERVER SENT: " + data)
-                if data == "bye":
-                    break
         except Exception as e:
             self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
             self.conn.close()
+
 
     def debug_start(self):
         try:
