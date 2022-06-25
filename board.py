@@ -104,32 +104,34 @@ class Board:
         self.w_left_rook_moved = False
         self.w_king_moved = False
 
+        op = c.dif_clr(self.currentColor)
+        pl = self.currentColor
 
         self.board = [[0 for x in range(cols)] for _ in range(rows)]
         if self.is_board_tmp == False:
-            self.board[0][0] = Rook(0,0,"b")
-            self.board[0][1] = Knight(0,1,"b")
-            self.board[0][2] = Bishop(0,2,"b")
-            self.board[0][3] = Queen(0,3,"b")
-            self.board[0][4] = King(0,4,"b")
-            self.board[0][5] = Bishop(0,5,"b")
-            self.board[0][6] = Knight(0,6,"b")
-            self.board[0][6] = Knight(0,6,"b")
-            self.board[0][7] = Rook(0,7,"b")
+            self.board[0][0] = Rook(0,0,op)
+            self.board[0][1] = Knight(0,1,op)
+            self.board[0][2] = Bishop(0,2,op)
+            self.board[0][3] = Queen(0,3,op)
+            self.board[0][4] = King(0,4,op)
+            self.board[0][5] = Bishop(0,5,op)
+            self.board[0][6] = Knight(0,6,op)
+            self.board[0][6] = Knight(0,6,op)
+            self.board[0][7] = Rook(0,7,op)
             if self.TogglePawns:
                 for j in range(8):
-                    self.board[1][j] = Pawn(1, j, "b")
-            self.board[7][0] = Rook(7,0,"w")
-            self.board[7][1] = Knight(7,1,"w")
-            self.board[7][2] = Bishop(7,2,"w")
-            self.board[7][3] = Queen(7,3,"w")
-            self.board[7][4] = King(7,4,"w")
-            self.board[7][5] = Bishop(7,5,"w")
-            self.board[7][6] = Knight(7,6,"w")
-            self.board[7][7] = Rook(7,7,"w")
+                    self.board[1][j] = Pawn(1, j, op)
+            self.board[7][0] = Rook(7,0,pl)
+            self.board[7][1] = Knight(7,1,pl)
+            self.board[7][2] = Bishop(7,2,pl)
+            self.board[7][3] = Queen(7,3,pl)
+            self.board[7][4] = King(7,4,pl)
+            self.board[7][5] = Bishop(7,5,pl)
+            self.board[7][6] = Knight(7,6,pl)
+            self.board[7][7] = Rook(7,7,pl)
             if self.TogglePawns:
                 for j in range(8):
-                    self.board[6][j] = Pawn(6, j, "w")
+                    self.board[6][j] = Pawn(6, j, pl)
 
             self.update_init_moves()
 
@@ -616,6 +618,45 @@ class Board:
                     self.select(i,j)
         return change
 
+    def invoke_move_logic(self, _move):
+        y = _move.start_row
+        x = _move.start_col
+        i = _move.end_row
+        j = _move.end_col
+        _piece = self.board[y][x]
+        self.UpdateBoard()
+        if self.IsValid((i, j), _piece):
+            _move = self.get_move((i, j), _piece)
+            if self.authorise_move(_move, _piece):
+                change = True
+        else:
+            if(self.board[i][j] != 0):
+                self.select(i,j)
+
+    def comm_move_logic(self, i, j): # communicated move logic
+        change = False
+        move = None
+        if(0 <= i < 8 and 0 <= j < 8):
+            IsSelected = self.IsSelected()
+            y = IsSelected[1]
+            x = IsSelected[2]
+            _piece = self.board[y][x]
+            self.UpdateBoard()
+            if IsSelected[0]:
+                if self.IsValid((i, j), _piece):
+                    _move = self.get_move((i, j), _piece)
+                    if self.authorise_move(_move, _piece):
+                        change = True
+                        move = _move
+                else:
+                    if(self.board[i][j] != 0):
+                        self.select(i,j)
+            else:
+                if(self.board[i][j] != 0):
+                    self.select(i,j)
+        return change, move
+
+
 
     def update_moved_bools(self, p):
         if p.img_ind == pe.e_Rook.value:
@@ -740,6 +781,31 @@ class Board:
         else:
             self.choose_from_tools(tool, "b", self.b_tooltip_ind)
         return True
+
+    def choose_tool_comm(self, pos): # choose tool communicated mode
+        if pos == (-1, -1):
+            yield False, "", "", (-1, -1)
+        else:
+            if pos == (0,0):
+                tool = "bishop"
+                img_ind = pe.e_Bishop.value
+            if pos == (0,1):
+                tool = "knight"
+                img_ind = pe.e_Knight.value
+            if pos == (1,0):
+                tool = "queen"
+                img_ind = pe.e_Queen.value
+            if pos == (1,1):
+                tool = "rook"
+                img_ind = pe.e_Rook.value
+            if self.currentColor == "w":
+                self.choose_from_tools(tool, "w", self.w_tooltip_ind)
+                yield True, img_ind, "w", self.w_tooltip_ind
+            else:
+                self.choose_from_tools(tool, "b", self.b_tooltip_ind)
+                yield True, img_ind, "b", self.b_tooltip_ind
+        self.w_tooltip_ind = (-1,-1)
+        self.b_tooltip_ind = (-1,-1)
 
     def check_tooltip(self, move):
         for _pawn in self.get_all_pieces():

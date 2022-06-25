@@ -1,5 +1,7 @@
 import pygame
 import os
+
+import piece
 from board import Board
 from board import minMaxTree
 import constants as c
@@ -8,15 +10,23 @@ import time
 
 class game:
     def __init__(self, win):
-        self.board = pygame.transform.scale(pygame.image.load(os.path.join("Assets", "board_alt.png")), (c.BOARD_ALT_WIDTH, c.BOARD_ALT_HEIGHT))
+        self.board_sur = pygame.transform.scale(pygame.image.load(os.path.join("Assets", "board_alt.png")), (c.BOARD_ALT_WIDTH, c.BOARD_ALT_HEIGHT))
         self.rect = (c.START_X, c.START_Y, c.BOARD_WIDTH, c.BOARD_HEIGHT)
         self.width = c.BOARD_ALT_WIDTH
         self.height = c.BOARD_ALT_HEIGHT
         self.win = win
         pygame.display.set_caption("Chess!!")
 
+        # general variables
+        self.color = "w"
+        self.turn = "w"
+        self.start_time = 0
+        self.player_time = 60 * 15
+        self.opponent_time = 60 * 15
+        self.clock = pygame.time.Clock()
+
     def redraw_gamewindow(self, win, bo, p1Time, p2Time):
-        win.blit(self.board, (0,0))
+        win.blit(self.board_sur, (0,0))
         bo.draw(win)
         font = pygame.font.SysFont("Arial", 30)
         p1Timemin = int(p1Time // 60)
@@ -28,6 +38,27 @@ class game:
         win.blit(txt2, (450, 20))
         win.blit(txt, (450, 720))
         pygame.display.update()
+
+    def online_end_screen(self, win, text):
+        pygame.font.init()
+        font = pygame.font.SysFont("helvetic", 80)
+        txt = font.render(text, 1, (255, 0,0))
+        win.blit(txt, (self.width/2 - txt.get_width() / 2, 300))
+        pygame.display.update()
+
+        pygame.time.set_timer(pygame.USEREVENT+1, 1)
+
+        run = True
+        br = False
+        while run:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                if event.type == pygame.KEYUP:
+                    br = True
+                    break
+            if br:
+                break
 
     def end_screen(self, win, text):
         pygame.font.init()
@@ -79,16 +110,39 @@ class game:
                 return i, j
         return -1, -1
 
-    def invoke_move(self):
-        pass
+    def invoke_move(self, _move):
+        y = _move.start_row
+        x = _move.start_col
+        _piece = self.board.board[y][x]
+        return self.board.authorise_move(_move, _piece)
+
+    def invoke_tooltip_choice(self, _move):
+        tool = "queen"
+        y = _move.start_row
+        x = _move.start_col
+        _piece = self.board.board[y][x]
+        if _move.index == piece.Piece_Enum.e_Bishop.value:
+            tool = "bishop"
+        if _move.index == piece.Piece_Enum.e_Knight.value:
+            tool = "knight"
+        if _move.index == piece.Piece_Enum.e_Queen.value:
+            tool = "queen"
+        if _move.index == piece.Piece_Enum.e_Rook.value:
+            tool = "rook"
+        self.board.choose_from_tools(tool, _move.color, _move)
+
+    def init_online_game(self, color):
+        super().__init__(color)
+        self.board = Board(c.ROWS, c.COLS, color)
+
 
     def start(self):
         p1Time = 60 * 15
         p2Time = 60 * 15
         clock = pygame.time.Clock()
         turn = "w"
-        self.borad = Board(8,8, turn)
-        bo = Board(8,8, turn)
+        self.board = Board(8,8, turn)
+        bo = self.board
         run = True
         startTime = time.time()
         while run:
@@ -183,7 +237,7 @@ class game:
                     p2Time = 60 * 15
 
     def redraw_gamewindow_ai(self, win, bo, p1Time, chosen_color):
-        win.blit(self.board, (0,0))
+        win.blit(self.board_sur, (0,0))
         bo.draw(win)
         font = pygame.font.SysFont("Arial", 30)
         p1Timemin = int(p1Time // 60)

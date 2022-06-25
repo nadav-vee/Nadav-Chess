@@ -14,3 +14,12 @@ BOARD_WIDTH = COLS * SQUARE
 BOARD_HEIGHT = ROWS * SQUARE
 CHECKED = pygame.image.load(os.path.join("Assets", "checked.png"))
 
+def dif_clr(_color):
+    if _color == "w":
+        return "b"
+    return "w"
+
+def clr(_color):
+    if _color == "b":
+        return "black"
+    return "white"

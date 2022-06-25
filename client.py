@@ -1,3 +1,5 @@
+import random
+import time
 import pygame
 from pygame.locals import *
 import game
@@ -7,6 +9,9 @@ import os
 import socket
 import logging
 
+import piece
+
+
 class Client:
     def __init__(self):
 
@@ -15,18 +20,22 @@ class Client:
         self.font = pygame.font.SysFont("Arial", 30)
 
         # game options
-        self.localgame = game.game(self.win)
+        self.game = game.game(self.win)
         self.game_running = False
         self.game_over = False
 
         # client general
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.IP = cp.server_ip
         self.PORT = cp.server_port
+        self.IP = cp.server_ip
         self.CL_PORT = cp.client_port
+        self.CL_IP = socket.getaddrinfo(socket.gethostname(), self.CL_PORT)[-1][-1][0]
+        print(self.CL_IP, self.CL_PORT)
         self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
         self.can_connect = False
+        self.in_charge = False
+        self.connected = False
 
         # client logging
         #   Create a custom logger
@@ -35,16 +44,23 @@ class Client:
         e_handler = logging.FileHandler('logs\error.log')
         e_handler.setLevel(logging.ERROR)
 
-        i_handler = logging.FileHandler('logs\debug.log')
-        i_handler.setLevel(logging.DEBUG)
+        d_handler = logging.FileHandler('logs\debug.log')
+        d_handler.setLevel(logging.DEBUG)
+
+        i_handler = logging.FileHandler('logs\info.log')
+        i_handler.setLevel(logging.INFO)
         #   Create formatters and add it to handlers
         e_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         e_handler.setFormatter(e_format)
 
-        i_format = logging.Formatter('%(asctime)s - %(name)s \n %(levelname)s - %(message)s\n\n\n')
+        d_format = logging.Formatter('%(asctime)s - %(name)s \n %(levelname)s - %(message)s\n\n\n')
+        d_handler.setFormatter(d_format)
+
+        i_format = logging.Formatter('%(message)s')
         i_handler.setFormatter(i_format)
         #   Add handlers to the logger
         self.logger.addHandler(e_handler)
+        self.logger.addHandler(d_handler)
         self.logger.addHandler(i_handler)
 
         # design
@@ -68,6 +84,351 @@ class Client:
     def __del__(self):
         self.conn.close()
 
+    def build_and_send(self, _cmd, _msg):
+        built_msg = cp.build_message(_cmd, _msg)
+        self.client_conn.send(built_msg.encode())
+
+    def recv_and_parse(self):
+        raw_msg = self.client_conn.recv(self.MAX_MSG_LENGTH).decode()
+        (_type, _msg) = cp.parse_message(raw_msg)
+        return _type, _msg
+
+    def send_wait(self):
+        self.build_and_send("WAIT", "")
+
+    def send_ok(self):
+        self.build_and_send("OK", "")
+
+    def recv_is_wait_or_ok(self):
+        _type, _msg = self.recv_and_parse()
+        if _type == "OK":
+            return True
+        elif _type == "WAIT":
+            return False
+        else:
+            self.logger.error(f"in wait or ok question got different type : {_type} - {_msg}")
+            return False
+
+    def connect_to_opponent(self, _listen):
+        if not _listen:
+            try:
+                self.logger.info(f"attempting to connect to %s:%d {self.CL_IP, self.CL_PORT}")
+                self.client_conn.connect((self.CL_IP, self.CL_PORT))
+            except Exception as e:
+                self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e), exc_info=True)
+        else:
+            self.client_conn.bind((self.IP, self.CL_PORT))
+            self.logger.info(f"listening in port %d ...{self.CL_PORT}")
+            self.client_conn.listen()
+            (self.opp_socket, self.opp_address) = self.client_conn.accept()
+            self.logger.info("Opponent connected")
+
+    def request_connection(self):
+        self.logger.info("requesting opponent from server...")
+        while True:
+            req = cp.build_message("REQUEST_OPPONENT", "")
+            self.conn.send(req.encode())
+            raw_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
+            (_type, _res) = cp.parse_message(raw_res)
+            if _type == "WAIT":
+                raw_res_ok = self.conn.recv(self.MAX_MSG_LENGTH).decode()
+                (_type, _res) = cp.parse_message(raw_res_ok)
+            if _type == "OK":
+                self.logger.info("server found opponent")
+                raw_sec_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
+                (sec_type, sec_res) = cp.parse_message(raw_sec_res)
+                print(sec_type, sec_res)
+                if sec_type == "IS_LISTEN":
+                    if sec_res == "1":
+                        self.in_charge = True
+                        self.logger.info(f"client {self.IP} is in listen mode")
+                elif sec_type == "IP_ADDRESS":
+                    self.CL_IP = sec_res
+                    self.logger.info(f"client {self.IP} is in connect mode to {self.CL_IP}")
+            break
+        try:
+            self.connect_to_opponent(self.in_charge)
+            msg_close_conn = cp.build_message("CLOSE", "")
+            self.conn.send(msg_close_conn.encode())
+            self.conn.close()
+            self.logger.info("connection with server is closed. start playing!")
+        except Exception as e:
+            self.logger.error(f"connection failed : {e}")
+
+    def init_game(self):
+        if self.in_charge:
+            if random.random() % 2 == 0:
+                _color = "w"
+            else:
+                _color = "b"
+            (_type, _msg) = self.recv_and_parse()
+            if _type == "OK":
+                self.game.init_online_game(c.dif_clr(_color))
+        else:
+
+            (_type, _color) = self.recv_and_parse()
+            if _type == "INIT_GAME":
+                self.game.init_online_game(_color)
+            self.build_and_send("OK", "")
+
+    def handle_sync_connect(self):
+        if self.game_running:
+            return True
+        else:
+            try:
+                self.request_connection()
+                self.logger.info("handle sync - connected")
+                self.init_game()
+                self.logger.info("handle sync - game initialized")
+            except Exception as e:
+                return False
+            finally:
+                self.game_running = True
+
+    def handle_abrupt_disconnection(self):
+        self.game.end_screen(self.win, "abruptly disconnected")
+        self.logger.error("abruptly disconnected")
+
+
+    def sync_current_time(self):
+        if self.in_charge:
+            (_type, _msg) = self.recv_and_parse()
+            if _type == "SET_START_TIME":
+                self.game.start_time = float(_msg)
+        else:
+            self.game.start_time = time.time()
+            self.build_and_send("START_TIME", f"{self.game.start_time}")
+
+    def alert_mate(self, _color):
+        if self.game.turn == self.game.color:
+            self.build_and_send("GAME_OVER", _color)
+            self.game.end_screen(self.win, f"{c.clr(_color)} won!")
+        else:
+            _type, _msg = self.recv_and_parse()
+            if _type == "GAME_OVER":
+                self.game.end_screen(self.win, f"{c.clr(_msg)} won!")
+
+    def alert_stalemate(self):
+        if self.game.turn == self.game.color:
+            self.build_and_send("STALEMATE", "")
+            self.game.end_screen(self.win, "Stalemate!")
+        else:
+            _type, _msg = self.recv_and_parse()
+            if _type == "STALEMATE":
+                self.game.end_screen(self.win, "Stalemate!")
+
+    def send_move(self, _move):
+        move_msg = self.build_move_msg(_move, _move.index, _move.color)
+        self.build_and_send("PENDING_MOVE", move_msg)
+
+    def recv_move(self):
+        _move = None
+        _type, _msg = self.recv_and_parse()
+        if _type == "PENDING_MOVE":
+            _move = self.parse_move_msg(_msg)
+        return _move
+
+    def build_move_msg(self, _move, _ind, _color):
+        i = _move.start_row
+        j = _move.start_col
+        y = _move.end_row
+        x = _move.end_col
+        g = _ind
+        c = _color
+        return "%s%s%s%s%s%s" % (str(i), str(j), str(y), str(x), str(g), c)
+
+    def parse_move_msg(self, msg):
+        i = msg[0]
+        j = msg[1]
+        y = msg[2]
+        x = msg[3]
+        g = msg[4]
+        c = msg[5]
+        m = piece.move((int(i),int(j)), (int(y),int(x)), int(g), c)
+        return m
+
+    def reset_time(self):
+        self.game.player_time = 60 * 15
+        self.game.opponent_time = 60 * 15
+        self.sync_current_time()
+
+    def online_start(self):
+        run = True
+        change = False
+        self.sync_current_time()
+        while run:
+            self.game.clock.tick(30)
+
+            if self.game.turn == self.game.color:
+                self.game.player_time -= (time.time() - self.game.start_time)
+            else:
+                self.game.opponent_time -= (time.time() - self.game.start_time)
+
+            self.sync_current_time()
+
+
+            self.game.redraw_gamewindow(self.game.win, self.game.board, self.game.player_time, self.game.opponent_time)
+
+            if self.game.board.b_is_mated:
+                self.alert_mate("w")
+            if self.game.board.w_is_mated:
+                self.alert_mate("b")
+            if self.game.board.b_stalemate or self.game.board.w_stalemate:
+                self.alert_stalemate()
+
+            if self.game.board.w_tooltip or self.game.board.b_tooltip:
+                if self.game.turn == self.game.color:
+                    while self.game.board.w_tooltip or self.game.board.b_tooltip:
+                        self.game.board.toolsWin = True
+                        _change = False
+
+                        if self.game.turn == self.game.color:
+                            self.game.player_time -= (time.time() - self.game.start_time)
+                        else:
+                            self.game.opponent_time -= (time.time() - self.game.start_time)
+
+                        self.sync_current_time()
+
+                        self.game.redraw_gamewindow(self.game.win, self.game.board, self.game.player_time, self.game.opponent_time)
+
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                run = False
+                                quit()
+                                pygame.quit()
+
+                            if event.type == pygame.K_ESCAPE:
+                                self.client_conn.close()
+                                self.handle_abrupt_disconnection()
+
+                            if event.type == pygame.MOUSEMOTION:
+                                pass
+
+                            if event.type == pygame.MOUSEBUTTONDOWN:
+                                pos = pygame.mouse.get_pos()
+                                i, j = self.game.ToolsClick(pos)
+                                _change, tt_tool, tt_color, tt_move = self.game.board.choose_tool_from_pos((i,j))
+                                if _change:
+                                    self.send_ok()
+                                    move_msg = self.build_move_msg(tt_move, tt_tool, tt_color)
+                                    self.build_and_send("CHOSEN_TOOL", move_msg)
+
+                        if _change:
+                            if self.game.turn == "w":
+                                self.game.turn = "b"
+                            else:
+                                self.game.turn = "w"
+                            _change = False
+                            self.game.board.b_tooltip = False
+                            self.game.board.w_tooltip = False
+                            self.game.board.toolsWin = False
+                            break
+                        else:
+                            self.send_wait()
+                else:
+                    while self.game.turn != self.game.color:
+                        if self.game.turn == self.game.color:
+                            self.game.player_time -= (time.time() - self.game.start_time)
+                        else:
+                            self.game.opponent_time -= (time.time() - self.game.start_time)
+                        self.sync_current_time()
+
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                run = False
+                                quit()
+                                pygame.quit()
+
+                            if event.type == pygame.K_ESCAPE:
+                                pass
+
+                            if event.type == pygame.MOUSEMOTION:
+                                pass
+                        try:
+                            _change = self.recv_is_wait_or_ok()
+                        except Exception as e:
+                            self.logger.error(f"error : {e}")
+                            self.handle_abrupt_disconnection()
+
+                        if _change:
+                            try:
+                                _type, _msg = self.recv_and_parse()
+                            except Exception as e:
+                                self.logger.error(f"error : {e}")
+                                self.handle_abrupt_disconnection()
+                            if _type == "CHOSEN_TOOL":
+                                _move = self.parse_move_msg(_msg)
+                                self.game.invoke_tooltip_choice(_move)
+                            if self.game.turn == "w":
+                                self.game.turn = "b"
+                            else:
+                                self.game.turn = "w"
+                            _change = False
+                            self.game.board.b_tooltip = False
+                            self.game.board.w_tooltip = False
+                            self.game.board.toolsWin = False
+                            break
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    quit()
+                    pygame.quit()
+
+                if event.type == pygame.MOUSEMOTION:
+                    pass
+
+                if event.type == pygame.K_ESCAPE:
+                    pass
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+                    i, j = self.game.click(pos)
+                    if self.game.turn == self.game.color:
+                        change, _move = self.game.board.comm_move_logic(i, j)
+                        if change:
+                            self.send_ok()
+                            self.send_move(_move)
+                        else:
+                            self.send_wait()
+                    else:
+                        if self.recv_is_wait_or_ok():
+                            _move = self.recv_move()
+                            self.game.invoke_move(_move)
+                            change = True
+
+                    if change:
+                        if self.game.turn == "w":
+                            self.game.turn = "b"
+                        else:
+                            self.game.turn = "w"
+                        change = False
+
+    def start_script(self):
+        try:
+            self.conn.connect((self.IP, self.PORT))
+            self.logger.info("connected to %s:%d successfully" % (self.IP, self.PORT))
+            self.request_connection()
+            self.online_start()
+        except Exception as e:
+            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
+            self.conn.close()
+
+
+    def debug_start(self):
+        try:
+            self.conn.connect((self.IP, self.PORT))
+            while True:
+                msg = input("enter message\n")
+                self.conn.send(msg.encode())
+                data = self.conn.recv(self.MAX_MSG_LENGTH).decode()
+                print("THE SERVER SENT: " + data)
+                if data == "bye":
+                    break
+        except Exception as e:
+            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
+            self.conn.close()
+
     def redraw(self, win):
         win.blit(self.pvp_img, (0,0))
         win.blit(self.ai_img, (0, c.BOARD_ALT_HEIGHT/3))
@@ -89,53 +450,6 @@ class Client:
         if pos[0] >= rect[0] and pos[0] <= (rect[2] + rect[0]) and pos[1] >= rect[1] and pos[1] <= (rect[3] + rect[1]):
             return True
         return False
-
-    def connect_to_opponent(self, _listen):
-        if not _listen:
-            try:
-                self.client_conn.connect((self.IP, self.CL_PORT))
-            except Exception as e:
-                self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e))
-                self.conn.close()
-        else:
-            self.client_conn.bind((self.IP, self.CL_PORT))
-            self.client_conn.listen()
-            (self.opp_socket, self.opp_address) = self.client_conn.accept()
-            print( "Opponent connected" )
-
-    def request_game(self):
-        req = cp.build_message("REQUEST_OPPONENT", "")
-
-    def handle_game_sync(self):
-        if self.game_running:
-            return True
-        else:
-            while True:
-                raw_msg = self.request_game()
-                (_type, _msg) = cp.parse_message(raw_msg.decode())
-
-
-    def online_start(self):
-        try:
-            self.conn.connect((self.IP, self.PORT))
-        except Exception as e:
-            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
-            self.conn.close()
-
-
-    def debug_start(self):
-        try:
-            self.conn.connect((self.IP, self.PORT))
-            while True:
-                msg = input("enter message\n")
-                self.conn.send(msg.encode())
-                data = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-                print("THE SERVER SENT: " + data)
-                if data == "bye":
-                    break
-        except Exception as e:
-            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
-            self.conn.close()
 
     def start(self):
         run = True
@@ -172,17 +486,17 @@ class Client:
                     if not self.to_choose:
                         if self.intersects(self.pvp_rect, pos):
                             #self.clientg.startAI("w")
-                            self.localgame.start()
+                            self.game.start()
                         if self.intersects(self.ai_rect, pos):
                             if self.toggle_ai:
                                 self.to_choose = True
                         if self.intersects(self.online_rect, pos):
-                            self.debug_start()
+                            self.start_script()
                     else:
                         if self.intersects(self.white_txt_hitbox, pos):
-                            self.localgame.startAI("w")
+                            self.game.startAI("w")
                         if self.intersects(self.black_txt_hitbox, pos):
-                            self.localgame.startAI("b")
+                            self.game.startAI("b")
                         self.to_choose = False
 
 pygame.init()
