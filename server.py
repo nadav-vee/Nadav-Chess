@@ -89,6 +89,31 @@ class server:
         self.send_ok(dev2.conn)
         self.build_and_send(dev1.conn, "IS_LISTEN", "1")
         self.build_and_send(dev2.conn, "IP_ADDRESS", dev1.address)
+<<<<<<< main
+=======
+        _type, _msg = self.recv_and_parse(dev1.conn)
+        if not _type == "LISTENING":
+            err_msg = "client didn't send listening"
+            print(err_msg)
+            self.logger.error(err_msg)
+        self.build_and_send(dev2.conn, "ATTEMPT_CONN", "")
+        _type, _msg = self.recv_and_parse(dev2.conn)
+        if not _type == "CONNECTING":
+            err_msg = "client didn't attempt connection"
+            print(err_msg)
+            self.logger.error(err_msg)
+        self.build_and_send(dev1, "ACCEPT_CLIENT", "")
+        _type, _msg = self.recv_and_parse(dev2.conn)
+        if not _type == "CONT":
+            err_msg = "Match orchestration failed"
+            print(err_msg)
+            self.logger.error(err_msg)
+        else:
+            msg = (f"successfully orchestrated match between: \n"
+                             f"{socket.gethostbyaddr(dev1.address)} and {socket.gethostbyaddr(dev2.address)}")
+            print(msg)
+            self.logger.info(msg)
+>>>>>>> Online WIP
 
     def match_making(self):
         while self.requests_queue.qsize() > 1:
