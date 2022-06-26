@@ -28,10 +28,11 @@ class Client:
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.PORT = cp.server_port
-        self.IP = cp.server_ip
+        self.SERVER_IP = cp.server_ip
+        self.IP = socket.getaddrinfo(socket.gethostname(), self.CL_PORT)[-1][-1][0]
         self.CL_PORT = cp.client_port
-        self.CL_IP = socket.getaddrinfo(socket.gethostname(), self.CL_PORT)[-1][-1][0]
-        print(self.CL_IP, self.CL_PORT)
+        self.CL_IP = cp.server_ip
+        print(self.IP, self.CL_PORT)
         self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
         self.can_connect = False
         self.in_charge = False
@@ -147,14 +148,13 @@ class Client:
 
     def request_connection(self):
         self.logger.info("requesting opponent from server...")
-        req = cp.build_message("REQUEST_OPPONENT", "")
-        self.conn.send(req.encode())
-        raw_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-        (_type, _res) = cp.parse_message(raw_res)
-        while True:
+        self.build_and_send_server("REQUEST_OPPONENT", "")
+        _type, _res = self.recv_and_parse_server()
+        waiting = True
+        while waiting:
+            print(_type)
             if _type == "WAIT":
-                raw_res_ok = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-                (_type, _res) = cp.parse_message(raw_res_ok)
+                _type, _res = self.recv_and_parse_server()
                 continue
             if _type == "OK":
                 self.logger.info("server found opponent")
@@ -167,10 +167,11 @@ class Client:
                         self.logger.info(f"client {self.IP} is in listen mode")
                 elif sec_type == "IP_ADDRESS":
                     self.CL_IP = sec_res
+                    print(f"client {self.IP} is in connect mode to {self.CL_IP}")
                     self.logger.info(f"client {self.IP} is in connect mode to {self.CL_IP}")
                 else:
                     self.conn.close()
-            break
+            waiting = False
         try:
             self.connect_to_opponent(self.in_charge)
             msg_close_conn = cp.build_message("CLOSE", "")
@@ -213,130 +214,6 @@ class Client:
     def handle_abrupt_disconnection(self):
         self.game.end_screen(self.win, "abruptly disconnected")
         self.logger.error("abruptly disconnected")
-
-    def sync_current_time(self):
-        if self.in_charge:
-            (_type, _msg) = self.recv_and_parse()
-            if _type == "SET_START_TIME":
-                self.game.start_time = float(_msg)
-        else:
-            self.game.start_time = time.time()
-            self.build_and_send("START_TIME", f"{self.game.start_time}")
-
-    def alert_mate(self, _color):
-        if self.game.turn == self.game.color:
-            self.build_and_send("GAME_OVER", _color)
-            self.game.end_screen(self.win, f"{c.clr(_color)} won!")
-        else:
-            _type, _msg = self.recv_and_parse()
-            if _type == "GAME_OVER":
-                self.game.end_screen(self.win, f"{c.clr(_msg)} won!")
-
-    def alert_stalemate(self):
-        if self.game.turn == self.game.color:
-            self.build_and_send("STALEMATE", "")
-            self.game.end_screen(self.win, "Stalemate!")
-        else:
-            _type, _msg = self.recv_and_parse()
-            if _type == "STALEMATE":
-                self.game.end_screen(self.win, "Stalemate!")
-
-    def send_move(self, _move):
-        move_msg = self.build_move_msg(_move, _move.index, _move.color)
-        self.build_and_send("PENDING_MOVE", move_msg)
-
-    def recv_move(self):
-        _move = None
-        _type, _msg = self.recv_and_parse()
-        if _type == "PENDING_MOVE":
-            _move = self.parse_move_msg(_msg)
-        return _move
-
-    def build_move_msg(self, _move, _ind, _color):
-        i = _move.start_row
-        j = _move.start_col
-        y = _move.end_row
-        x = _move.end_col
-        g = _ind
-        c = _color
-        return "%s%s%s%s%s%s" % (str(i), str(j), str(y), str(x), str(g), c)
-
-    def parse_move_msg(self, msg):
-        i = msg[0]
-        j = msg[1]
-        y = msg[2]
-        x = msg[3]
-        g = msg[4]
-        c = msg[5]
-        m = piece.move((int(i),int(j)), (int(y),int(x)), int(g), c)
-        return m
-
-    def reset_time(self):
-        self.game.player_time = 60 * 15
-        self.game.opponent_time = 60 * 15
-        self.sync_current_time()
-
-    def sync_current_time(self):
-        if self.in_charge:
-            (_type, _msg) = self.recv_and_parse()
-            if _type == "SET_START_TIME":
-                self.game.start_time = float(_msg)
-        else:
-            self.game.start_time = time.time()
-            self.build_and_send("START_TIME", f"{self.game.start_time}")
-
-    def alert_mate(self, _color):
-        if self.game.turn == self.game.color:
-            self.build_and_send("GAME_OVER", _color)
-            self.game.end_screen(self.win, f"{c.clr(_color)} won!")
-        else:
-            _type, _msg = self.recv_and_parse()
-            if _type == "GAME_OVER":
-                self.game.end_screen(self.win, f"{c.clr(_msg)} won!")
-
-    def alert_stalemate(self):
-        if self.game.turn == self.game.color:
-            self.build_and_send("STALEMATE", "")
-            self.game.end_screen(self.win, "Stalemate!")
-        else:
-            _type, _msg = self.recv_and_parse()
-            if _type == "STALEMATE":
-                self.game.end_screen(self.win, "Stalemate!")
-
-    def send_move(self, _move):
-        move_msg = self.build_move_msg(_move, _move.index, _move.color)
-        self.build_and_send("PENDING_MOVE", move_msg)
-
-    def recv_move(self):
-        _move = None
-        _type, _msg = self.recv_and_parse()
-        if _type == "PENDING_MOVE":
-            _move = self.parse_move_msg(_msg)
-        return _move
-
-    def build_move_msg(self, _move, _ind, _color):
-        i = _move.start_row
-        j = _move.start_col
-        y = _move.end_row
-        x = _move.end_col
-        g = _ind
-        c = _color
-        return "%s%s%s%s%s%s" % (str(i), str(j), str(y), str(x), str(g), c)
-
-    def parse_move_msg(self, msg):
-        i = msg[0]
-        j = msg[1]
-        y = msg[2]
-        x = msg[3]
-        g = msg[4]
-        c = msg[5]
-        m = piece.move((int(i),int(j)), (int(y),int(x)), int(g), c)
-        return m
-
-    def reset_time(self):
-        self.game.player_time = 60 * 15
-        self.game.opponent_time = 60 * 15
-        self.sync_current_time()
 
     def sync_current_time(self):
         if self.in_charge:
@@ -554,12 +431,12 @@ class Client:
 
     def start_script(self):
         try:
-            self.conn.connect((self.IP, self.PORT))
-            self.logger.info("connected to %s:%d successfully" % (self.IP, self.PORT))
+            self.conn.connect((self.SERVER_IP, self.PORT))
+            self.logger.info("connected to %s:%d successfully" % (self.SERVER_IP, self.PORT))
             self.request_connection()
             self.online_start()
         except Exception as e:
-            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
+            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.SERVER_IP, self.PORT, e))
             self.conn.close()
 
 
