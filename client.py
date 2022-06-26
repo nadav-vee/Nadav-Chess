@@ -121,7 +121,6 @@ class Client:
     def connect_to_opponent(self, _listen):
         if not _listen:
             try:
-<<<<<<< main
                 self.logger.info(f"attempting to connect to %s:%d {self.CL_IP, self.CL_PORT}")
                 _type, _msg = self.recv_and_parse_server()
                 if _type != "ATTEMPT_CONN":
@@ -167,6 +166,7 @@ class Client:
                         self.in_charge = True
                         self.logger.info(f"client {self.IP} is in listen mode")
                 elif sec_type == "IP_ADDRESS":
+                    print(f"{sec_type},{sec_res}")
                     self.CL_IP = sec_res
                     self.logger.info(f"client {self.IP} is in connect mode to {self.CL_IP}")
                 else:
@@ -214,7 +214,6 @@ class Client:
     def handle_abrupt_disconnection(self):
         self.game.end_screen(self.win, "abruptly disconnected")
         self.logger.error("abruptly disconnected")
-<<<<<<< main
 
     def sync_current_time(self):
         if self.in_charge:
