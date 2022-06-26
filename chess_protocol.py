@@ -2,12 +2,12 @@ import socket
 
 ip_prot = socket.AF_INET
 tcp_prot = socket.SOCK_STREAM
-server_ip = '127.0.0.1'
+host_name = "naviran-lap"
 server_port = 8820
+server_ip = socket.getaddrinfo(host_name, server_port)[-1][-1][0]
 client_port = 8821
 MAX_MSG_LENGTH = 1024
 server_name = "The Gfuel fan club"
-
 disconnect_msg = "CLOSE"
 kill_server_msg = "bye and close"
 
@@ -170,6 +170,15 @@ In game message types (client to client):
         L - length
         T - unix time in string
         
+        
+
+    sync start time:
+        
+        START_TIME      |00LL|TTT
+        L - length
+        T - unix time in string
+        
+
         this type is meant to sync the two games start time together
     
     ok:
@@ -192,6 +201,25 @@ Message types from server to client:
         IS_LISTEN       |0001|B
         B - 1/0
         
+    :
+    
+        ATTEMPT_CONN    |0000|
+    
+        
+
+    ok:
+        OK              |0000|
+        
+    wait:
+        WAIT            |0000|
+
+    Listen boolean:
+    
+        LISTEN_MODE     |0000|
+        
+        IS_LISTEN       |0001|B
+        B - 1/0
+        
         the message will be every time a client requests a game connection and the message
         assigns the client whether it listens or connects 
     
@@ -203,6 +231,7 @@ Message types from server to client:
         X = ip address values
         
         message sent inorder to provide the client the IP
+<<<<<<< main
     
 
 Message types from client to server:
@@ -228,8 +257,39 @@ Message types from client to server:
         to tell the server to refresh the other player game after the player's
         finished all move logic.
     
+=======
+>>>>>>> Online WIP
     
-Messages server to client:
 
+Message types from client to server:
+    
+    :
+    
+        LISTENING       |0000|
+    
+        CONNECTING      |0000|
+        
+        ACCEPT_CLIENT   |0000|
+    
+    close connection with server:
+    
+        CLOSE           |0000|
+        
+        message will indicate to server that a connection with client should be closed
+    
+    Request opponent:
+        
+        REQUEST_OPPONENT|0000|
+        
+        this message will be sent after client is ready for the game
+        and is requesting an approval that server has connected to
+    
+    Continue:
+    
+        CONT            |0000|
+        
+        this message will be sent from a player to the server in order
+        to tell the server to refresh the other player game after the player's
+        finished all move logic.
     
 '''
