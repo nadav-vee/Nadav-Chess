@@ -6,6 +6,7 @@ host_name = "naviran-lap"
 server_port = 8820
 server_ip = socket.getaddrinfo(host_name, server_port)[-1][-1][0]
 client_port = 8821
+listen_port = 8823
 MAX_MSG_LENGTH = 1024
 server_name = "The Gfuel fan club"
 disconnect_msg = "CLOSE"

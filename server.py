@@ -82,8 +82,10 @@ class server:
         conn.send(built_msg.encode())
 
     def recv_and_parse(self, conn):
-        raw_msg = conn.recv(self.MAX_MSG_LENGTH).decode()
-        (_type, _msg) = cp.parse_message(raw_msg)
+        _type = None
+        while _type is None:
+            raw_msg = conn.recv(self.MAX_MSG_LENGTH).decode()
+            (_type, _msg) = cp.parse_message(raw_msg)
         return _type, _msg
 
     def send_wait(self, conn):
@@ -155,6 +157,8 @@ class server:
                                 self.devtwo_wait = True
                             else:
                                 self.requests_queue.put(current_device)
+                        if _type == "OK":
+                            self.send_ok(current_device.conn)
                         if _type == "LISTENING":
                             self.build_and_send(self.device_match[1].conn, "ATTEMPT_CONN", "")
                         if _type == "CONNECTING":
@@ -174,8 +178,9 @@ class server:
                 self.send_ok(self.device_match[1].conn)
                 self.build_and_send(self.device_match[0].conn, "IS_LISTEN", "1")
                 print("sent is listen")
-                self.build_and_send(self.device_match[1].conn, "IP_ADDRESS", self.device_match[0].address[0])
-                print(f"sent ip address {self.device_match[0].conn}, {self.device_match[0].address[0]} IP_ADDRESS")
+                self.build_and_send(self.device_match[1].conn, "PORT", str(self.device_match[0].address[1]))
+                #self.build_and_send(self.device_match[1].conn, "IP_ADDRESS", str(self.device_match[0].address[0]))
+                print(f"sent ip address {self.device_match[0].address[0]} IP_ADDRESS")
 
     def __del__(self):
         self.s.close()
