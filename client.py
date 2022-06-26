@@ -28,9 +28,9 @@ class Client:
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.PORT = cp.server_port
+        self.CL_PORT = cp.client_port
         self.SERVER_IP = cp.server_ip
         self.IP = socket.getaddrinfo(socket.gethostname(), self.CL_PORT)[-1][-1][0]
-        self.CL_PORT = cp.client_port
         self.CL_IP = cp.server_ip
         print(self.IP, self.CL_PORT)
         self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
@@ -129,8 +129,8 @@ class Client:
                     print(err_msg)
                     self.logger.error(err_msg)
                 self.logger.info(f"attempting to connect to %s:%d {self.CL_IP, self.CL_PORT}")
-                self.build_and_send_server("CONT", "")
                 self.client_conn.connect((self.CL_IP, self.CL_PORT))
+                self.build_and_send_server("CONT", "")
             except Exception as e:
                 self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e), exc_info=True)
         else:

@@ -77,6 +77,7 @@ class server:
             print("\t", c.conn.getpeername())
 
     def build_and_send(self, conn, _cmd, _msg):
+        print(f"sending {_cmd} to {conn.getpeername()}")
         built_msg = cp.build_message(_cmd, _msg)
         conn.send(built_msg.encode())
 
