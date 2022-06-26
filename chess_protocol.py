@@ -162,7 +162,6 @@ In game message types (client to client):
         GAME_OVER       |0001|C
         C - winning color
         
-<<<<<<< main
         
 
     sync start time:
@@ -191,7 +190,6 @@ In game message types (client to client):
 
 Message types from server to client:
 
-<<<<<<< main
     ok:
         OK              |0000|
         
