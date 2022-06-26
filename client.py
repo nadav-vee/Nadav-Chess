@@ -147,14 +147,15 @@ class Client:
 
     def request_connection(self):
         self.logger.info("requesting opponent from server...")
+        req = cp.build_message("REQUEST_OPPONENT", "")
+        self.conn.send(req.encode())
+        raw_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
+        (_type, _res) = cp.parse_message(raw_res)
         while True:
-            req = cp.build_message("REQUEST_OPPONENT", "")
-            self.conn.send(req.encode())
-            raw_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-            (_type, _res) = cp.parse_message(raw_res)
             if _type == "WAIT":
                 raw_res_ok = self.conn.recv(self.MAX_MSG_LENGTH).decode()
                 (_type, _res) = cp.parse_message(raw_res_ok)
+                continue
             if _type == "OK":
                 self.logger.info("server found opponent")
                 raw_sec_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
