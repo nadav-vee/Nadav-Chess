@@ -89,8 +89,8 @@ class server:
         self.send_ok(dev2.conn)
         self.build_and_send(dev1.conn, "IS_LISTEN", "1")
         print("sent is listen")
-        self.build_and_send(dev2.conn, "IP_ADDRESS", dev1.address)
-        print("sent ip address")
+        self.build_and_send(dev2.conn, "IP_ADDRESS", dev1.address[0])
+        print(f"sent ip address {dev2.conn}, {dev1.address} IP_ADDRESS")
         _type, _msg = self.recv_and_parse(dev1.conn)
         if not _type == "LISTENING":
             err_msg = f"client didn't send listening, instead {_type}, {_msg}"

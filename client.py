@@ -166,7 +166,6 @@ class Client:
                         self.in_charge = True
                         self.logger.info(f"client {self.IP} is in listen mode")
                 elif sec_type == "IP_ADDRESS":
-                    print(f"{sec_type},{sec_res}")
                     self.CL_IP = sec_res
                     self.logger.info(f"client {self.IP} is in connect mode to {self.CL_IP}")
                 else:
