@@ -93,8 +93,6 @@ class Client:
         (_type, _msg) = cp.parse_message(raw_msg)
         return _type, _msg
 
-<<<<<<< main
-=======
     def build_and_send_server(self, _cmd, _msg):
         built_msg = cp.build_message(_cmd, _msg)
         self.conn.send(built_msg.encode())
@@ -104,7 +102,6 @@ class Client:
         (_type, _msg) = cp.parse_message(raw_msg)
         return _type, _msg
 
->>>>>>> Online WIP
     def send_wait(self):
         self.build_and_send("WAIT", "")
 
@@ -124,9 +121,7 @@ class Client:
     def connect_to_opponent(self, _listen):
         if not _listen:
             try:
-<<<<<<< main
                 self.logger.info(f"attempting to connect to %s:%d {self.CL_IP, self.CL_PORT}")
-=======
                 _type, _msg = self.recv_and_parse_server()
                 if _type != "ATTEMPT_CONN":
                     err_msg = f"server didn't communicated attempt connect instead : {_type}"
@@ -134,7 +129,6 @@ class Client:
                     self.logger.error(err_msg)
                 self.logger.info(f"attempting to connect to %s:%d {self.CL_IP, self.CL_PORT}")
                 self.build_and_send_server("CONT", "")
->>>>>>> Online WIP
                 self.client_conn.connect((self.CL_IP, self.CL_PORT))
             except Exception as e:
                 self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e), exc_info=True)
@@ -171,8 +165,11 @@ class Client:
                         self.in_charge = True
                         self.logger.info(f"client {self.IP} is in listen mode")
                 elif sec_type == "IP_ADDRESS":
+                    print(f"{sec_type},{sec_res}")
                     self.CL_IP = sec_res
                     self.logger.info(f"client {self.IP} is in connect mode to {self.CL_IP}")
+                else:
+                    self.conn.close()
             break
         try:
             self.connect_to_opponent(self.in_charge)
@@ -216,10 +213,6 @@ class Client:
     def handle_abrupt_disconnection(self):
         self.game.end_screen(self.win, "abruptly disconnected")
         self.logger.error("abruptly disconnected")
-<<<<<<< main
-
-=======
->>>>>>> Online WIP
 
     def sync_current_time(self):
         if self.in_charge:

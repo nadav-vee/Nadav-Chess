@@ -8,10 +8,6 @@ server_ip = socket.getaddrinfo(host_name, server_port)[-1][-1][0]
 client_port = 8821
 MAX_MSG_LENGTH = 1024
 server_name = "The Gfuel fan club"
-<<<<<<< main
-
-=======
->>>>>>> Online WIP
 disconnect_msg = "CLOSE"
 kill_server_msg = "bye and close"
 
@@ -166,7 +162,6 @@ In game message types (client to client):
         GAME_OVER       |0001|C
         C - winning color
         
-<<<<<<< main
         
 
     sync start time:
@@ -175,7 +170,6 @@ In game message types (client to client):
         L - length
         T - unix time in string
         
-=======
         
 
     sync start time:
@@ -184,7 +178,7 @@ In game message types (client to client):
         L - length
         T - unix time in string
         
->>>>>>> Online WIP
+
         this type is meant to sync the two games start time together
     
     ok:
@@ -196,7 +190,6 @@ In game message types (client to client):
 
 Message types from server to client:
 
-<<<<<<< main
     ok:
         OK              |0000|
         
@@ -208,7 +201,6 @@ Message types from server to client:
         IS_LISTEN       |0001|B
         B - 1/0
         
-=======
     :
     
         ATTEMPT_CONN    |0000|
@@ -228,7 +220,6 @@ Message types from server to client:
         IS_LISTEN       |0001|B
         B - 1/0
         
->>>>>>> Online WIP
         the message will be every time a client requests a game connection and the message
         assigns the client whether it listens or connects 
     
