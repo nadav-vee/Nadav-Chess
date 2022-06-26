@@ -100,6 +100,7 @@ class Client:
         return _type, _msg
 
     def build_and_send_server(self, _cmd, _msg):
+        print(f"sending server at {self.conn.address[0]} : {_cmd}")
         built_msg = cp.build_message(_cmd, _msg)
         self.conn.send(built_msg.encode())
         print(f"sending {_cmd} to server")
