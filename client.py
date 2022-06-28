@@ -29,10 +29,11 @@ class Client:
         self.client_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.PORT = cp.server_port
         self.CL_PORT = cp.client_port
+        self.mode = "ip"
         self.SERVER_IP = cp.server_ip
         self.IP = socket.getaddrinfo(socket.gethostname(), self.CL_PORT)[-1][-1][0]
         self.CL_IP = cp.server_ip
-        print(self.IP, self.CL_PORT)
+        print(self.IP, self.PORT)
         self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
         self.can_connect = False
         self.in_charge = False
@@ -88,7 +89,7 @@ class Client:
     def build_and_send(self, _cmd, _msg):
         built_msg = cp.build_message(_cmd, _msg)
         self.client_conn.send(built_msg.encode())
-        print(f"{_cmd}")
+        print(f"sending {_cmd} to {self.client_conn.getpeername()}")
 
     def recv_and_parse(self):
         raw_msg = self.client_conn.recv(self.MAX_MSG_LENGTH).decode()
@@ -98,13 +99,14 @@ class Client:
     def build_and_send_server(self, _cmd, _msg):
         built_msg = cp.build_message(_cmd, _msg)
         self.conn.send(built_msg.encode())
-        print(f"{_cmd}")
+        print(f"sending {_cmd} to server")
 
     def recv_and_parse_server(self):
         _type = None
         while _type is None:
             raw_msg = self.conn.recv(self.MAX_MSG_LENGTH).decode()
             (_type, _msg) = cp.parse_message(raw_msg)
+        print(f"received {_type}, {_msg} from server")
         return _type, _msg
 
     def send_wait(self):
@@ -126,32 +128,62 @@ class Client:
     def connect_to_opponent(self, _listen):
         if not _listen:
             try:
-                self.logger.info(f"attempting to connect to %s:%d {self.CL_IP, self.CL_PORT}")
-                _type, _msg = self.recv_and_parse_server()
-                if _type != "ATTEMPT_CONN":
-                    err_msg = f"server didn't communicated attempt connect instead : {_type}"
-                    print(err_msg)
-                    self.logger.error(err_msg)
-                self.logger.info(f"attempting to connect to {self.CL_IP, self.CL_PORT}")
-                print(f"attempting to connect to {self.CL_IP, self.CL_PORT}")
-                self.client_conn.connect((self.CL_IP, self.CL_PORT))
-                print(f"{self.CL_IP}, {self.CL_PORT}")
-                self.build_and_send_server("CONNECTING", "")
+                if self.mode == "ip":
+                    print(f"ip, {_listen}")
+                    self.logger.info(f"attempting to connect to {self.CL_IP, self.CL_PORT}")
+                    _type, _msg = self.recv_and_parse_server()
+                    if _type != "ATTEMPT_CONN":
+                        err_msg = f"server didn't communicated attempt connect instead : {_type}"
+                        print(err_msg)
+                        self.logger.error(err_msg)
+                    self.logger.info(f"attempting to connect to {self.CL_IP, self.CL_PORT}")
+                    print(f"attempting to connect to {self.CL_IP, self.CL_PORT}")
+                    self.client_conn.connect((self.CL_IP, self.CL_PORT))
+                    print(f"{self.CL_IP}, {self.CL_PORT}")
+                    self.build_and_send_server("CONNECTING", "")
+                elif self.mode == "port":
+                    print(f"port, {_listen}")
+                    self.logger.info(f"attempting to connect to 1 {self.IP, self.CL_PORT}")
+                    _type, _msg = self.recv_and_parse_server()
+                    if _type != "ATTEMPT_CONN":
+                        err_msg = f"server didn't communicated attempt connect instead : {_type}"
+                        print(err_msg)
+                        self.logger.error(err_msg)
+                    self.logger.info(f"attempting to connect to {self.IP, self.CL_PORT}")
+                    print(f"attempting to connect to {self.IP, self.CL_PORT}")
+                    self.build_and_send_server("CONNECTING", "")
+                    self.client_conn.connect((self.IP, self.CL_PORT))
+                    print(f"{self.IP}, {self.CL_PORT}")
             except Exception as e:
                 print("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e))
                 self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e), exc_info=True)
         else:
-            self.client_conn.bind((self.IP, self.CL_PORT))
-            self.logger.info(f"listening in port %d ...{self.CL_PORT}")
-            self.client_conn.listen()
-            self.build_and_send_server("LISTENING", "")
-            _type, _msg = self.recv_and_parse_server()
-            if _type != "ACCEPT_CLIENT":
-                err_msg = f"server didn't tell client to accept, instead : {_type}"
-                print(err_msg)
-                self.logger.error(err_msg)
-            (self.opp_socket, self.opp_address) = self.client_conn.accept()
-            self.logger.info("Opponent connected")
+            if self.mode == "ip":
+                self.client_conn.bind((self.IP, self.CL_PORT))
+                self.logger.info(f"listening in port %d ...{self.CL_PORT}")
+                self.client_conn.listen()
+                self.build_and_send_server("LISTENING", "")
+                _type, _msg = self.recv_and_parse_server()
+                if _type != "ACCEPT_CLIENT":
+                    err_msg = f"server didn't tell client to accept, instead : {_type}"
+                    print(err_msg)
+                    self.logger.error(err_msg)
+                (self.opp_socket, self.opp_address) = self.client_conn.accept()
+                self.logger.info("Opponent connected")
+                print("Opponent connected")
+            elif self.mode == "port":
+                self.client_conn.bind((self.IP, self.CL_PORT))
+                self.logger.info(f"listening in port %d ...{self.CL_PORT}")
+                self.client_conn.listen()
+                self.build_and_send_server("LISTENING", "")
+                _type, _msg = self.recv_and_parse_server()
+                if _type != "ACCEPT_CLIENT":
+                    err_msg = f"server didn't tell client to accept, instead : {_type}"
+                    print(err_msg)
+                    self.logger.error(err_msg)
+                (self.opp_socket, self.opp_address) = self.client_conn.accept()
+                self.logger.info("Opponent connected")
+                print("Opponent connected")
 
     def request_connection(self):
         self.logger.info("requesting opponent from server...")
@@ -159,35 +191,32 @@ class Client:
         _type, _res = self.recv_and_parse_server()
         waiting = True
         while waiting:
-            print(_type)
             if _type == "WAIT":
                 _type, _res = self.recv_and_parse_server()
                 continue
             if _type == "OK":
                 self.logger.info("server found opponent")
-                raw_sec_res = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-                (sec_type, sec_res) = cp.parse_message(raw_sec_res)
-                print(sec_type, sec_res)
+                (sec_type, sec_res) = self.recv_and_parse_server()
                 if sec_type == "IS_LISTEN":
                     if sec_res == "1":
                         self.in_charge = True
                         self.logger.info(f"client {self.IP} is in listen mode")
                 elif sec_type == "IP_ADDRESS" or "PORT":
                     if sec_type == "IP_ADDRESS":
+                        self.mode = "ip"
                         self.CL_IP = sec_res
                     elif sec_type == "PORT":
-                        self.mode == "port"
-                        self.CL_PORT = sec_res
+                        self.mode = "port"
+                        self.CL_PORT = cp.client_port
                     print(f"client {self.IP} is in connect mode to {self.CL_IP}")
                     self.logger.info(f"client {self.IP} is in connect mode to {self.CL_IP}")
-                else:
-                    self.conn.close()
-            waiting = False
+                waiting = False
         try:
             self.connect_to_opponent(self.in_charge)
             self.build_and_send_server("CLOSE", "")
             self.conn.close()
             self.logger.info("connection with server is closed. start playing!")
+            print("connection with server is closed. start playing!")
         except Exception as e:
             self.logger.error(f"connection failed : {e}")
 
@@ -197,6 +226,7 @@ class Client:
                 _color = "w"
             else:
                 _color = "b"
+            self.build_and_send("INIT_GAME", "")
             (_type, _msg) = self.recv_and_parse()
             if _type == "OK":
                 self.game.init_online_game(c.dif_clr(_color))
@@ -207,19 +237,19 @@ class Client:
                 self.game.init_online_game(_color)
             self.build_and_send("OK", "")
 
-    def handle_sync_connect(self):
-        if self.game_running:
-            return True
-        else:
-            try:
-                self.request_connection()
-                self.logger.info("handle sync - connected")
-                self.init_game()
-                self.logger.info("handle sync - game initialized")
-            except Exception as e:
-                return False
-            finally:
-                self.game_running = True
+    # def handle_sync_connect(self):
+    #     if self.game_running:
+    #         return True
+    #     else:
+    #         try:
+    #             self.request_connection()
+    #             self.logger.info("handle sync - connected")
+    #             self.init_game()
+    #             self.logger.info("handle sync - game initialized")
+    #         except Exception as e:
+    #             return False
+    #         finally:
+    #             self.game_running = True
 
     def handle_abrupt_disconnection(self):
         self.game.end_screen(self.win, "abruptly disconnected")
@@ -444,25 +474,12 @@ class Client:
             self.conn.connect((self.SERVER_IP, self.PORT))
             self.logger.info("connected to %s:%d successfully" % (self.SERVER_IP, self.PORT))
             self.request_connection()
+            self.init_game()
             self.online_start()
         except Exception as e:
             self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.SERVER_IP, self.PORT, e))
             self.conn.close()
 
-
-    def debug_start(self):
-        try:
-            self.conn.connect((self.IP, self.PORT))
-            while True:
-                msg = input("enter message\n")
-                self.conn.send(msg.encode())
-                data = self.conn.recv(self.MAX_MSG_LENGTH).decode()
-                print("THE SERVER SENT: " + data)
-                if data == "bye":
-                    break
-        except Exception as e:
-            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.PORT, e))
-            self.conn.close()
 
     def redraw(self, win):
         win.blit(self.pvp_img, (0,0))
