@@ -114,6 +114,7 @@ class game:
         y = _move.start_row
         x = _move.start_col
         _piece = self.board.board[y][x]
+        print(f"piece is {_piece}, y is {y}, x is {x}")
         return self.board.authorise_move(_move, _piece)
 
     def invoke_tooltip_choice(self, _move):
@@ -132,7 +133,7 @@ class game:
         self.board.choose_from_tools(tool, _move.color, _move)
 
     def init_online_game(self, color):
-        super().__init__(color)
+        self.color = color
         self.board = Board(c.ROWS, c.COLS, color)
 
 

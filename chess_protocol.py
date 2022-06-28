@@ -2,8 +2,9 @@ import socket
 
 ip_prot = socket.AF_INET
 tcp_prot = socket.SOCK_STREAM
-host_name = "naviran-lap"
-server_port = 8820
+host_name = "harper"
+#host_name = "naviran-lap"
+server_port = 8822
 server_ip = socket.getaddrinfo(host_name, server_port)[-1][-1][0]
 client_port = 8821
 listen_port = 8823

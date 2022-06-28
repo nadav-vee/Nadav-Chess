@@ -26,6 +26,7 @@ class Client:
 
         # client general
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listen_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.PORT = cp.server_port
         self.CL_PORT = cp.client_port
@@ -87,6 +88,7 @@ class Client:
         self.conn.close()
 
     def build_and_send(self, _cmd, _msg):
+        print(f"sending to client which is {self.client_conn}")
         built_msg = cp.build_message(_cmd, _msg)
         self.client_conn.send(built_msg.encode())
         print(f"sending {_cmd} to {self.client_conn.getpeername()}")
@@ -94,6 +96,7 @@ class Client:
     def recv_and_parse(self):
         raw_msg = self.client_conn.recv(self.MAX_MSG_LENGTH).decode()
         (_type, _msg) = cp.parse_message(raw_msg)
+        print(_type, _msg)
         return _type, _msg
 
     def build_and_send_server(self, _cmd, _msg):
@@ -159,29 +162,42 @@ class Client:
                 self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.IP, self.CL_PORT, e), exc_info=True)
         else:
             if self.mode == "ip":
-                self.client_conn.bind((self.IP, self.CL_PORT))
+                print(f"ip, {_listen}")
+                self.listen_conn.bind(("0.0.0.0", self.CL_PORT))
                 self.logger.info(f"listening in port %d ...{self.CL_PORT}")
-                self.client_conn.listen()
+                self.listen_conn.listen()
                 self.build_and_send_server("LISTENING", "")
                 _type, _msg = self.recv_and_parse_server()
                 if _type != "ACCEPT_CLIENT":
                     err_msg = f"server didn't tell client to accept, instead : {_type}"
                     print(err_msg)
                     self.logger.error(err_msg)
-                (self.opp_socket, self.opp_address) = self.client_conn.accept()
+                try:
+                    (self.opp_socket, self.opp_address) = self.listen_conn.accept()
+                    self.client_conn = self.opp_socket
+                    print(self.opp_address)
+                except Exception as e:
+                    print(f"Error {e}")
                 self.logger.info("Opponent connected")
                 print("Opponent connected")
             elif self.mode == "port":
-                self.client_conn.bind((self.IP, self.CL_PORT))
+                print(f"port, {_listen}")
+                self.listen_conn.bind((self.IP, self.CL_PORT))
                 self.logger.info(f"listening in port %d ...{self.CL_PORT}")
-                self.client_conn.listen()
+                self.listen_conn.listen()
                 self.build_and_send_server("LISTENING", "")
                 _type, _msg = self.recv_and_parse_server()
                 if _type != "ACCEPT_CLIENT":
                     err_msg = f"server didn't tell client to accept, instead : {_type}"
                     print(err_msg)
                     self.logger.error(err_msg)
-                (self.opp_socket, self.opp_address) = self.client_conn.accept()
+                try:
+                    (self.opp_socket, self.opp_address) = self.listen_conn.accept()
+                    self.client_conn = self.opp_socket
+                    print(self.opp_address)
+                    print(f"client socket is {self.client_conn}")
+                except Exeption as e:
+                    print(f"exception {e}")
                 self.logger.info("Opponent connected")
                 print("Opponent connected")
 
@@ -192,6 +208,7 @@ class Client:
         waiting = True
         while waiting:
             if _type == "WAIT":
+                print("expecting OK")
                 _type, _res = self.recv_and_parse_server()
                 continue
             if _type == "OK":
@@ -226,13 +243,22 @@ class Client:
                 _color = "w"
             else:
                 _color = "b"
-            self.build_and_send("INIT_GAME", "")
+            print(f"my color is {c.dif_clr(_color)}")
+            try:
+                self.build_and_send("INIT_GAME", _color)
+            except Exception as e:
+                print(f"catch lol you got {e}")
+            print("expecting OK")
             (_type, _msg) = self.recv_and_parse()
             if _type == "OK":
                 self.game.init_online_game(c.dif_clr(_color))
         else:
 
-            (_type, _color) = self.recv_and_parse()
+            print("expecting init game")
+            try:
+                (_type, _color) = self.recv_and_parse()
+            except Exception as e:
+                print(f"oh no {e}")
             if _type == "INIT_GAME":
                 self.game.init_online_game(_color)
             self.build_and_send("OK", "")
@@ -283,7 +309,7 @@ class Client:
                 self.game.end_screen(self.win, "Stalemate!")
 
     def send_move(self, _move):
-        move_msg = self.build_move_msg(_move, _move.index, _move.color)
+        move_msg = self.build_move_msg(_move, _move.piece, _move.color)
         self.build_and_send("PENDING_MOVE", move_msg)
 
     def recv_move(self):
@@ -303,13 +329,13 @@ class Client:
         return "%s%s%s%s%s%s" % (str(i), str(j), str(y), str(x), str(g), c)
 
     def parse_move_msg(self, msg):
-        i = msg[0]
-        j = msg[1]
-        y = msg[2]
-        x = msg[3]
-        g = msg[4]
+        i = 7 - int(msg[0])
+        j = int(msg[1])
+        y = 7 - int(msg[2])
+        x = int(msg[3])
+        g = int(msg[4])
         c = msg[5]
-        m = piece.move((int(i),int(j)), (int(y),int(x)), int(g), c)
+        m = piece.move((i, j), (y, x), g, c)
         return m
 
     def reset_time(self):
@@ -324,15 +350,16 @@ class Client:
         while run:
             self.game.clock.tick(30)
 
-            if self.game.turn == self.game.color:
-                self.game.player_time -= (time.time() - self.game.start_time)
-            else:
-                self.game.opponent_time -= (time.time() - self.game.start_time)
-
-            self.sync_current_time()
-
-
             self.game.redraw_gamewindow(self.game.win, self.game.board, self.game.player_time, self.game.opponent_time)
+
+            if not self.game.turn == self.game.color:
+                try:
+                    if self.recv_is_wait_or_ok():
+                        _move = self.recv_move()
+                        self.game.invoke_move(_move)
+                        change = True
+                except Exception as e:
+                    print(f"accept this, bitch! {e}")
 
             if self.game.board.b_is_mated:
                 self.alert_mate("w")
@@ -346,13 +373,6 @@ class Client:
                     while self.game.board.w_tooltip or self.game.board.b_tooltip:
                         self.game.board.toolsWin = True
                         _change = False
-
-                        if self.game.turn == self.game.color:
-                            self.game.player_time -= (time.time() - self.game.start_time)
-                        else:
-                            self.game.opponent_time -= (time.time() - self.game.start_time)
-
-                        self.sync_current_time()
 
                         self.game.redraw_gamewindow(self.game.win, self.game.board, self.game.player_time, self.game.opponent_time)
 
@@ -392,11 +412,6 @@ class Client:
                             self.send_wait()
                 else:
                     while self.game.turn != self.game.color:
-                        if self.game.turn == self.game.color:
-                            self.game.player_time -= (time.time() - self.game.start_time)
-                        else:
-                            self.game.opponent_time -= (time.time() - self.game.start_time)
-                        self.sync_current_time()
 
                         for event in pygame.event.get():
                             if event.type == pygame.QUIT:
@@ -450,23 +465,32 @@ class Client:
                     pos = pygame.mouse.get_pos()
                     i, j = self.game.click(pos)
                     if self.game.turn == self.game.color:
+                        print(i, j)
                         change, _move = self.game.board.comm_move_logic(i, j)
+                        print(change, _move)
                         if change:
-                            self.send_ok()
-                            self.send_move(_move)
+                            try:
+                                self.send_ok()
+                                self.send_move(_move)
+                            except Exception as e:
+                                print(f"move ex : {e}")
                         else:
-                            self.send_wait()
-                    else:
-                        if self.recv_is_wait_or_ok():
-                            _move = self.recv_move()
-                            self.game.invoke_move(_move)
-                            change = True
+                            try:
+                                self.send_wait()
+                            except Exception as e:
+                                print(f"move ex : {e}")
+                    # else:
+                    #     if self.recv_is_wait_or_ok():
+                    #         _move = self.recv_move()
+                    #         self.game.invoke_move(_move)
+                    #         change = True
 
                     if change:
                         if self.game.turn == "w":
                             self.game.turn = "b"
                         else:
                             self.game.turn = "w"
+
                         change = False
 
     def start_script(self):
