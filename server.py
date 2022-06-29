@@ -72,6 +72,9 @@ class server:
         self.logger.info(f"connection with client {device.fileno()} is closed")
         print(f"connection with client {device.fileno()} is closed")
         self.device_list.remove(device)
+        for dev in self.device_match:
+            if device is dev:
+                self.device_match.remove(dev)
         device.conn.close()
 
     def print_client_sockets(self):
@@ -154,7 +157,10 @@ class server:
                 self.devtwo_wait = False
                 self.send_ok(self.device_match[0].conn)
                 self.send_ok(self.device_match[1].conn)
-                self.build_and_send(self.device_match[0].conn, "IS_LISTEN", "1")
+                if self.toggle_local:
+                    self.build_and_send(self.device_match[0].conn, "IS_LISTEN", "1")
+                else:
+                    self.build_and_send(self.device_match[0].conn, "IS_LISTEN", "0")
                 print("sent is listen")
                 if self.toggle_local:
                     self.build_and_send(self.device_match[1].conn, "PORT", "")

@@ -2,8 +2,11 @@ import socket
 
 ip_prot = socket.AF_INET
 tcp_prot = socket.SOCK_STREAM
-host_name = "harper"
-#host_name = "naviran-lap"
+toggle_computer = False
+if toggle_computer:
+    host_name = "harper"
+else:
+    host_name = "naviran-lap"
 server_port = 8822
 server_ip = socket.getaddrinfo(host_name, server_port)[-1][-1][0]
 client_port = 8821

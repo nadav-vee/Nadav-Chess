@@ -67,6 +67,7 @@ class Piece:
         self.pawn = False
         self.moved = False
         self.can_move = True
+        self.black_pov = False
 
     def copy(self, board):
         if self.img_ind == Piece_Enum.e_Bishop.value:
@@ -86,6 +87,9 @@ class Piece:
         elif self.img_ind == Piece_Enum.e_Rook.value:
             board.board[self.row][self.col] = Rook(self.row, self.col, self.color)
             board.board[self.row][self.col].moved = self.moved
+
+    def set_black_pov(self):
+        self.black_pov = True
 
     def UpdateValidMoves(self, board):
         self.move_list = self.valid_moves(board)
@@ -110,9 +114,15 @@ class Piece:
 
     def draw(self, win):
         if self.color == "w":
-            drawThis = W[self.img_ind]
+            if not self.black_pov:
+                drawThis = W[self.img_ind]
+            else:
+                drawThis = B[self.img_ind]
         else:
-            drawThis = B[self.img_ind]
+            if not self.black_pov:
+                drawThis = B[self.img_ind]
+            else:
+                drawThis = W[self.img_ind]
 
         x = c.PADDING/2 + self.startX + (self.col * self.rect[2]/8)
         y = c.PADDING/2 + self.startY + (self.row * self.rect[3]/8)

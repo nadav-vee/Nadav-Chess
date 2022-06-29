@@ -96,7 +96,7 @@ class Client:
     def recv_and_parse(self):
         raw_msg = self.client_conn.recv(self.MAX_MSG_LENGTH).decode()
         (_type, _msg) = cp.parse_message(raw_msg)
-        print(_type, _msg)
+        print(f"received {_type}, {_msg}")
         return _type, _msg
 
     def build_and_send_server(self, _cmd, _msg):
@@ -119,7 +119,11 @@ class Client:
         self.build_and_send("OK", "")
 
     def recv_is_wait_or_ok(self):
-        _type, _msg = self.recv_and_parse()
+        _type = None
+        while _type is None:
+            print(f"expecting OK or WAIT on {self.client_conn}")
+            _type, _msg = self.recv_and_parse()
+            print(f"got {_type}")
         if _type == "OK":
             return True
         elif _type == "WAIT":
@@ -127,6 +131,19 @@ class Client:
         else:
             self.logger.error(f"in wait or ok question got different type : {_type} - {_msg}")
             return False
+
+    def start_script(self):
+        try:
+            print(f"server is {self.SERVER_IP} and port is {self.PORT}")
+            self.conn.connect((self.SERVER_IP, self.PORT))
+            self.logger.info("connected to %s:%d successfully" % (self.SERVER_IP, self.PORT))
+            self.request_connection()
+            self.init_game()
+            self.online_start()
+        except Exception as e:
+            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.SERVER_IP, self.PORT, e))
+            print(f"something's wrong, Exception is {e}")
+            self.conn.close()
 
     def connect_to_opponent(self, _listen):
         if not _listen:
@@ -215,9 +232,12 @@ class Client:
                 self.logger.info("server found opponent")
                 (sec_type, sec_res) = self.recv_and_parse_server()
                 if sec_type == "IS_LISTEN":
+                    self.in_charge = True
+                    self.logger.info(f"client {self.IP} is in listen mode")
                     if sec_res == "1":
-                        self.in_charge = True
-                        self.logger.info(f"client {self.IP} is in listen mode")
+                        self.mode = "port"
+                    else:
+                        self.mode = "ip"
                 elif sec_type == "IP_ADDRESS" or "PORT":
                     if sec_type == "IP_ADDRESS":
                         self.mode = "ip"
@@ -314,6 +334,7 @@ class Client:
 
     def recv_move(self):
         _move = None
+        print("expecting move")
         _type, _msg = self.recv_and_parse()
         if _type == "PENDING_MOVE":
             _move = self.parse_move_msg(_msg)
@@ -345,7 +366,7 @@ class Client:
 
     def online_start(self):
         run = True
-        change = False
+        turn_change = False
         self.sync_current_time()
         while run:
             self.game.clock.tick(30)
@@ -357,9 +378,12 @@ class Client:
                     if self.recv_is_wait_or_ok():
                         _move = self.recv_move()
                         self.game.invoke_move(_move)
-                        change = True
+                        print(f"move {_move} made")
+                        turn_change = True
+                    else:
+                        turn_change = False
                 except Exception as e:
-                    print(f"accept this, bitch! {e}")
+                    print(f"exception with receiving move! {e}")
 
             if self.game.board.b_is_mated:
                 self.alert_mate("w")
@@ -369,6 +393,7 @@ class Client:
                 self.alert_stalemate()
 
             if self.game.board.w_tooltip or self.game.board.b_tooltip:
+                print("tool tip!")
                 if self.game.turn == self.game.color:
                     while self.game.board.w_tooltip or self.game.board.b_tooltip:
                         self.game.board.toolsWin = True
@@ -472,37 +497,26 @@ class Client:
                             try:
                                 self.send_ok()
                                 self.send_move(_move)
+                                turn_change = True
                             except Exception as e:
                                 print(f"move ex : {e}")
                         else:
                             try:
                                 self.send_wait()
+                                turn_change = False
                             except Exception as e:
                                 print(f"move ex : {e}")
-                    # else:
-                    #     if self.recv_is_wait_or_ok():
-                    #         _move = self.recv_move()
-                    #         self.game.invoke_move(_move)
-                    #         change = True
 
-                    if change:
-                        if self.game.turn == "w":
-                            self.game.turn = "b"
-                        else:
-                            self.game.turn = "w"
+                print(f"change turns is {turn_change}")
+                if turn_change:
+                    if self.game.turn == "w":
+                        self.game.turn = "b"
+                    else:
+                        self.game.turn = "w"
 
-                        change = False
+                    turn_change = False
 
-    def start_script(self):
-        try:
-            self.conn.connect((self.SERVER_IP, self.PORT))
-            self.logger.info("connected to %s:%d successfully" % (self.SERVER_IP, self.PORT))
-            self.request_connection()
-            self.init_game()
-            self.online_start()
-        except Exception as e:
-            self.logger.error("something's wrong with %s:%d. Exception is %s" % (self.SERVER_IP, self.PORT, e))
-            self.conn.close()
+
 
 
     def redraw(self, win):

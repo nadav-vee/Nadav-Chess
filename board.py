@@ -104,8 +104,9 @@ class Board:
         self.w_left_rook_moved = False
         self.w_king_moved = False
 
-        op = c.dif_clr(self.currentColor)
-        pl = self.currentColor
+
+        op = "b"
+        pl = "w"
 
         self.board = [[0 for x in range(cols)] for _ in range(rows)]
         if self.is_board_tmp == False:
@@ -118,9 +119,14 @@ class Board:
             self.board[0][6] = Knight(0,6,op)
             self.board[0][6] = Knight(0,6,op)
             self.board[0][7] = Rook(0,7,op)
+            for j in range(8):
+                if self.currentColor == "b":
+                    self.board[0][j].set_black_pov()
             if self.TogglePawns:
                 for j in range(8):
                     self.board[1][j] = Pawn(1, j, op)
+                    if self.currentColor == "b":
+                        self.board[1][j].set_black_pov()
             self.board[7][0] = Rook(7,0,pl)
             self.board[7][1] = Knight(7,1,pl)
             self.board[7][2] = Bishop(7,2,pl)
@@ -129,9 +135,16 @@ class Board:
             self.board[7][5] = Bishop(7,5,pl)
             self.board[7][6] = Knight(7,6,pl)
             self.board[7][7] = Rook(7,7,pl)
+            for j in range(8):
+                if self.currentColor == "b":
+                    self.board[7][j].set_black_pov()
             if self.TogglePawns:
                 for j in range(8):
                     self.board[6][j] = Pawn(6, j, pl)
+                    if self.currentColor == "b":
+                        self.board[6][j].set_black_pov()
+
+
 
             self.update_init_moves()
 
