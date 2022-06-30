@@ -25,7 +25,7 @@ class game:
         self.opponent_time = 60 * 15
         self.clock = pygame.time.Clock()
 
-    def redraw_gamewindow(self, win, bo, p1Time, p2Time):
+    def redraw_gamewindow(self, win, bo, p1Time, p2Time, showtime=True):
         win.blit(self.board_sur, (0,0))
         bo.draw(win)
         font = pygame.font.SysFont("Arial", 30)
@@ -35,8 +35,9 @@ class game:
         p2Timemsec = int(p2Time % 60)
         txt = font.render("Player 1: {:02d}:{:02d}".format(p1Timemin,p1Timemsec), 1, (255, 255, 255))
         txt2 = font.render("Player 2: {:02d}:{:02d}".format(p2Timemin,p2Timemsec), 1, (255, 255, 255))
-        win.blit(txt2, (450, 20))
-        win.blit(txt, (450, 720))
+        if showtime:
+            win.blit(txt2, (450, 20))
+            win.blit(txt, (450, 720))
         pygame.display.update()
 
     def online_end_screen(self, win, text):

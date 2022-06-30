@@ -19,11 +19,15 @@ class remoteDevice:
 class server:
     def __init__(self):
         self.s = socket.socket(cp.ip_prot, cp.tcp_prot)
-        self.IP = "0.0.0.0"
+        self.toggle_local = True
+        if self.toggle_local:
+            self.IP = "0.0.0.0"
+        else:
+            #self.IP = cp.server_ip
+            self.IP = "0.0.0.0"
         self.PORT = cp.server_port
         self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
         self.server_name = cp.server_name
-        self.toggle_local = True
         self.device_list = []
         self.device_match = []
         self.ready_to_read = []
@@ -100,8 +104,8 @@ class server:
         self.build_and_send(conn, "OK", "")
 
     def start(self):
-        print("0.0.0.0", self.PORT)
-        self.s.bind(("0.0.0.0", self.PORT))
+        print(self.IP, self.PORT)
+        self.s.bind((self.IP, self.PORT))
         run = True
         self.s.listen()
         self.logger.info("Server is up and running...")

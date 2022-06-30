@@ -30,21 +30,21 @@ class minMaxTree:
         if len(move_tree.children) == 0:
             color_moves = move_tree.position.ai_danger_moves(other_color)
             for _move in color_moves:
-                _position = Board(8,8,color)
+                _position = Board(8, 8, color, True)
                 move_tree.position.CopyTo(_position)
                 _position.move(_move)
                 _score = 0
                 _child = Node(_score, _move, _position)
                 move_tree.children.append(_child)
-        if depth == 0:
-            return
-        _depth = depth - 1
-        for _child in move_tree.children:
-            self.build_tree(_child, _depth, other_color)
+        # if depth == 0:
+        #     return 0
+        # _depth = depth - 1
+        # for _child in move_tree.children:
+        #     self.build_tree(_child, _depth, other_color)
 
     def minimax(self, root, depth, maximizing_player):
         root.position.checkMate()
-        if depth == 0 or (root.position.is_b_mated or root.position.is_w_mated):
+        if depth == 0 or (root.position.b_is_mated or root.position.w_is_mated):
             return root.position.boardScore
 
         if maximizing_player:
@@ -64,8 +64,7 @@ class minMaxTree:
 
     def get_move_from_eval(self, root, score):
         for _child in root.children:
-            if score == _child.value:
-                return root.move
+            return root.move
         return None
 
     def set_new_root(self, score):
@@ -582,12 +581,13 @@ class Board:
         if not is_maximizing:
             _color = "b"
         self.UpdateBoard()
-        _score = tree.minimax(self.tree.root, 4, is_maximizing)
-        _move = tree.get_move_from_eval(self.tree.root, _score)
-        _piece = self.board[_move.start_row][_move.start_col]
-        if self.authorise_move(_move, _piece):
-            tree.set_new_root(_score)
-            tree.build_tree(self.tree, 4, _color)
+        _score = tree.minimax(tree.root, 1, is_maximizing)
+        _move = tree.get_move_from_eval(tree.root, _score)
+        if _move:
+            _piece = self.board[_move.start_row][_move.start_col]
+            if self.authorise_move(_move, _piece):
+                tree.set_new_root(_score)
+                tree.build_tree(self.tree, 1, _color)
 
 
     def ai_reaction_move_logic(self, i, j):

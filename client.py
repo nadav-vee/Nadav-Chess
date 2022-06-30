@@ -36,7 +36,6 @@ class Client:
         self.CL_IP = cp.server_ip
         print(self.IP, self.PORT)
         self.MAX_MSG_LENGTH = cp.MAX_MSG_LENGTH
-        self.can_connect = False
         self.in_charge = False
         self.connected = False
 
@@ -77,12 +76,12 @@ class Client:
         self.ai_rect = (0, c.BOARD_ALT_HEIGHT/3, c.BOARD_ALT_WIDTH, c.BOARD_ALT_HEIGHT/3)
         self.online_rect = (0, c.BOARD_ALT_HEIGHT*2/3, c.BOARD_ALT_WIDTH, c.BOARD_ALT_HEIGHT/3)
         self.to_choose = False
-        self.toggle_ai = False
+        self.toggle_ai = True
         self.choose_txt = self.font.render("choose color!", True, (255, 255, 255))
         self.black_txt = self.font.render("black", True, (255, 255, 255))
         self.white_txt = self.font.render("white", True, (255, 255, 255))
-        self.black_txt_hitbox = (c.BOARD_ALT_WIDTH/3 - 70, c.BOARD_ALT_HEIGHT/3 - 100, 50, 30)
-        self.white_txt_hitbox = (c.BOARD_ALT_WIDTH/3, c.BOARD_ALT_HEIGHT/3 - 100, 50, 30)
+        self.black_txt_hitbox = (c.BOARD_ALT_WIDTH/2 - 70, c.BOARD_ALT_HEIGHT/2 - 200, 50, 30)
+        self.white_txt_hitbox = (c.BOARD_ALT_WIDTH/2, c.BOARD_ALT_HEIGHT/2 - 200, 50, 30)
 
     def __del__(self):
         self.conn.close()
@@ -371,7 +370,7 @@ class Client:
         while run:
             self.game.clock.tick(30)
 
-            self.game.redraw_gamewindow(self.game.win, self.game.board, self.game.player_time, self.game.opponent_time)
+            self.game.redraw_gamewindow(self.game.win, self.game.board, self.game.player_time, self.game.opponent_time, False)
 
             if not self.game.turn == self.game.color:
                 try:
@@ -530,9 +529,9 @@ class Client:
         elif self.online_hover:
             pygame.draw.rect(win, [255,255,255], self.online_rect, 5)
         if self.to_choose:
-            win.blit(self.choose_txt, (c.BOARD_ALT_WIDTH/3 - 80, c.BOARD_ALT_HEIGHT/3))
-            win.blit(self.black_txt, (c.BOARD_ALT_WIDTH/3 - 70, c.BOARD_ALT_HEIGHT/3 - 100))
-            win.blit(self.white_txt, (c.BOARD_ALT_WIDTH/3, c.BOARD_ALT_HEIGHT/3 - 100))
+            win.blit(self.choose_txt, (c.BOARD_ALT_WIDTH/2 - 80, c.BOARD_ALT_HEIGHT/2 - 130))
+            win.blit(self.black_txt, (c.BOARD_ALT_WIDTH/2 - 70, c.BOARD_ALT_HEIGHT/2 - 200))
+            win.blit(self.white_txt, (c.BOARD_ALT_WIDTH/2, c.BOARD_ALT_HEIGHT/2 - 200))
         pygame.display.update()
 
 
@@ -575,7 +574,6 @@ class Client:
                     pos = pygame.mouse.get_pos(self.win)
                     if not self.to_choose:
                         if self.intersects(self.pvp_rect, pos):
-                            #self.clientg.startAI("w")
                             self.game.start()
                         if self.intersects(self.ai_rect, pos):
                             if self.toggle_ai:
